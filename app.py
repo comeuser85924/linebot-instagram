@@ -3,7 +3,7 @@ from flask import Flask, request, abort, render_template
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
-import configparser
+import configparser ,os
 import requests
 import json
 import unicodedata # 幫助我們全形轉半行
@@ -15,11 +15,7 @@ config.read('config.ini')
 
 line_bot_api = LineBotApi(config.get('line-bot', 'channel_access_token'))
 handler = WebhookHandler(config.get('line-bot', 'channel_secret'))
-
-@app.route("/")
-def home():
-    return render_template("home.html")
-
+print(os.environ)
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
@@ -53,39 +49,43 @@ def handle_message(event):
 
         if(response.status_code == 200):
             personalFile = response.json()['graphql']['user']['edge_owner_to_timeline_media']['edges']
-            array = []
-            for idx in range(len(personalFile)):
-                array.append({
-                        "type": "bubble",
-                        "body": {
-                            "type": "box",
-                            "layout": "vertical",
-                            "contents": [
-                                {
-                                    "type": "image",
-                                    "url": personalFile[idx]['node']['display_url'],
-                                    "size": "full",
-                                    "aspectMode": "cover",
-                                    "aspectRatio": "2:3",
-                                    "gravity": "top",
-                                    "action": {
-                                        "type": "message",
-                                        "label": "action",
-                                        "text": "顯示圖檔:"+account +'-'+ str(idx)
+            if len(personalFile) == 0: 
+                line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='您好，由於Instagram安全隱私問題，您尚未追蹤此人，所以無法取得相關資訊'))
+            else:
+                array = []
+                for idx in range(len(personalFile)):
+                    array.append({
+                            "type": "bubble",
+                            "body": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "image",
+                                        "url": personalFile[idx]['node']['display_url'],
+                                        "size": "full",
+                                        "aspectMode": "cover",
+                                        "aspectRatio": "2:3",
+                                        "gravity": "top",
+                                        "action": {
+                                            "type": "message",
+                                            "label": "action",
+                                            "text": "顯示圖檔:"+account +'-'+ str(idx)
+                                        }
                                     }
-                                }
-                            ],
-                            "paddingAll": "0px"
-                        }
-                    })
-            flex_message = FlexSendMessage(
-                alt_text='潘多拉之盒已開啟',
-                contents={
-                    "type": "carousel",
-                    "contents": array[0:10]
-                }
-            )
-            line_bot_api.reply_message(event.reply_token, flex_message)
+                                ],
+                                "paddingAll": "0px"
+                            }
+                        })
+                flex_message = FlexSendMessage(
+                    alt_text='潘多拉之盒已開啟',
+                    contents={
+                        "type": "carousel",
+                        "contents": array[0:10]
+                    }
+                )
+                line_bot_api.reply_message(event.reply_token, flex_message)
         else:
             line_bot_api.reply_message(
             event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
