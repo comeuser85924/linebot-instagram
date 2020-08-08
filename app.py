@@ -41,7 +41,7 @@ def handle_message(event):
     msg = event.message.text
     # print(type(msg))
     msg = msg.encode('utf-8')
-    if ('帳號' in event.message.text):
+    if ('神秘帳號' in event.message.text):
         
         msg = unicodedata.normalize('NFKC',event.message.text)
         account = msg.split(':')[1]
@@ -53,7 +53,6 @@ def handle_message(event):
 
         if(response.status_code == 200):
             personalFile = response.json()['graphql']['user']['edge_owner_to_timeline_media']['edges']
-           
             array = []
             for idx in range(len(personalFile)):
                 array.append({
@@ -79,7 +78,6 @@ def handle_message(event):
                             "paddingAll": "0px"
                         }
                     })
-            # print(array[0:10])
             flex_message = FlexSendMessage(
                 alt_text='潘多拉之盒已開啟',
                 contents={
@@ -87,7 +85,6 @@ def handle_message(event):
                     "contents": array[0:10]
                 }
             )
-            # print(flex_message)
             line_bot_api.reply_message(event.reply_token, flex_message)
         else:
             line_bot_api.reply_message(
