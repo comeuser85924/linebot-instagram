@@ -1,4 +1,3 @@
-
 from flask import Flask, request, abort, render_template
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -9,12 +8,19 @@ import requests
 import json
 import random
 import unicodedata  # 幫助我們全形轉半行
+from countSum import handleCount # 引入countSum.py 中的 handleCount fnction
+from listview import handleListview # listview.py 中的 handleListview fnction
 app = Flask(__name__)
 
 # LINE 聊天機器人的基本資料
-config = configparser.ConfigParser()
-config.read('config.ini')
 
+#local testing
+# config = configparser.ConfigParser()
+# config.read('config.ini')
+# line_bot_api = LineBotApi(config.get('line-bot', 'channel_access_token'))
+# handler = WebhookHandler(config.get('line-bot', 'channel_secret'))
+
+#heroku
 line_bot_api = LineBotApi(os.environ['channel_access_token'])
 handler = WebhookHandler(os.environ['channel_secret'])
 
@@ -41,18 +47,15 @@ def callback():
 
     return 'OK'
 
-def handleCount(dataList):
-    if('edge_sidecar_to_children' in dataList):
-        return len(dataList['edge_sidecar_to_children']['edges'])
-    return 1
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
 
     msg = event.message.text
     # print(type(msg))
     msg = msg.encode('utf-8')
-    headers = {'cookie': 'ig_did=AE5CF047-1E27-4940-B4A0-7197554C736F; mid=XzeFfAALAAHpt1UUmdWWrpl7kVe2; ds_user_id=40346245145; csrftoken=g7bSE3UVfGAN9je1hDrMRV3vmiOAnqXY; sessionid=40346245145%3ATLNKRMHXLKOR0h%3A12; shbid=12878; shbts=1600336282.0021117; rur=ASH; urlgen="{\"220.134.112.170\": 3462}:1kIqeL:9gRjocByF2-gEwik8kNwy8P_GDk"'}
-    if (('神秘帳號' in event.message.text) or ('instagram.com' in event.message.text) or (event.message.text == '天選之人')):
+    headers = {'cookie': 'ig_did=AE5CF047-1E27-4940-B4A0-7197554C736F; mid=XzeFfAALAAHpt1UUmdWWrpl7kVe2; ig_nrcb=1; datr=pxu1XwkyUYUpoR3AARXvFIb-; shbid=7352; rur=ATN; csrftoken=wtkxupPbNc0Y8s2IGiwaeyQapeVxrBds; ds_user_id=44465382319; sessionid=44465382319%3AkBAsiqAU8R8SKn%3A19; shbts=1610462481.3135202; urlgen="{\"150.116.132.139\": 131627}:1kzKsW:wR5yiz-U0sdMoRaB0_mnwuCXFvc'}
+    if (('神秘帳號' in event.message.text) or (event.message.text == '天選之人')):
         msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
         mores = 0
         account = ''
@@ -64,23 +67,17 @@ def handle_message(event):
             else:
                 account = msg.split(':')[1]
             url = "https://www.instagram.com/"+account+"/"
-        elif('instagram.com' in msg):
-            # 處理網址 確認取得帳號
-            for i in range(0,len(msg)):
-                if (msg[i] == '?'):
-                    url = msg[0:i]
         elif(event.message.text == '天選之人'):
-            url='https://www.instagram.com/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables={"id":"40346245145","include_reel":true,"fetch_mutual":false,"first":50}'
+            url='https://www.instagram.com/graphql/query/?query_hash=3dec7e2c57367ef3da3d987d89f9dbc8&variables=%7B%22id%22%3A%2244465382319%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Afalse%2C%22first%22%3A24%7D'
             response = requests.request("GET", url ,headers=headers)
             if(response.status_code == 200): 
                 lotteryList = response.json()['data']['user']['edge_follow']['edges']
-                endSum = random.randint(1,len(lotteryList)) 
+                endSum = random.randint(1,len(lotteryList)-1) 
                 account = lotteryList[endSum]['node']['username']
-                url = "https://www.instagram.com/"+account+"/"
+                url = "https://www.instagram.com/"+account+"/?"
         querystring = {"__a": "1"}
         payload = ""
         # 新增ig help測試帳號
-        
         response = requests.request("GET", url, data=payload, headers=headers, params=querystring)
         if(response.status_code == 200):
             personalFile = response.json()['graphql']['user']['edge_owner_to_timeline_media']['edges']
@@ -90,162 +87,8 @@ def handle_message(event):
             else:
                 array = []
                 for idx in range(len(personalFile)):
-                    if (handleCount(personalFile[idx]['node']) != 1):
-                        array.append({
-                            "type": "bubble",
-                            "body": {
-                                    "type": "box",
-                                    "layout": "vertical",
-                                    "contents": [
-                                        {
-                                            "type": "image",
-                                            "url": personalFile[idx]['node']['display_url'],
-                                            "size": "full",
-                                            "aspectMode": "cover",
-                                            "aspectRatio": "2:3",
-                                            "gravity": "top",
-                                            "action": {
-                                                "type": "message",
-                                                "label": "action",
-                                                "text": "下載單圖:"+account + '-' + str(idx)
-                                            }
-                                        },
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "contents": [
-                                            {
-                                                "type": "box",
-                                                "layout": "vertical",
-                                                "contents": [
-                                                {
-                                                    "type": "filler"
-                                                },
-                                                {
-                                                    "type": "box",
-                                                    "layout": "baseline",
-                                                    "contents": [
-                                                    {
-                                                        "type": "filler"
-                                                    },
-                                                    {
-                                                        "type": "text",
-                                                        "text": "我想一次看" + str(handleCount(personalFile[idx]['node'])) + '張',
-                                                        "color": "#ffffff",
-                                                        "flex": 0,
-                                                        "offsetTop": "-2px",
-                                                        "weight": "bold",
-                                                        "action": {
-                                                            "type": "message",
-                                                            "label": "action",
-                                                            "text": "下載多圖:"+account + "順序" + str(idx)
-                                                        }
-                                                    },
-                                                    {
-                                                        "type": "filler"
-                                                    }
-                                                    ],
-                                                    "spacing": "sm"
-                                                },
-                                                {
-                                                    "type": "filler"
-                                                }
-                                                ],
-                                                "borderWidth": "1px",
-                                                "cornerRadius": "4px",
-                                                "spacing": "sm",
-                                                "borderColor": "#ffffff",
-                                                "margin": "xxl",
-                                                "height": "40px"
-                                            }
-                                            ],
-                                            "position": "absolute",
-                                            "offsetBottom": "0px",
-                                            "offsetStart": "0px",
-                                            "offsetEnd": "0px",
-                                            "paddingAll": "20px",
-                                            "paddingTop": "18px"
-                                        },
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "contents": [
-                                                {
-                                                    "type": "text",
-                                                    "text": '查看文章',
-                                                    "color": "#ffffff",
-                                                    "align": "center",
-                                                    "size": "xs",
-                                                    "offsetTop": "3px"
-                                                }
-                                            ],
-                                            "position": "absolute",
-                                            "cornerRadius": "20px",
-                                            "offsetTop": "18px",
-                                            "backgroundColor": "#ff334b",
-                                            "offsetStart": "18px",
-                                            "height": "25px",
-                                            "width": "75px",
-                                            "action": {
-                                                "type": "uri",
-                                                "label": "action",
-                                                "uri": "https://www.instagram.com/p/"+personalFile[idx]['node']['shortcode']+"/"
-                                                }
-                                        }
-                                    ],
-                                "paddingAll": "0px"
-                            }
-                        })
-                    else:
-                        array.append({
-                            "type": "bubble",
-                            "body": {
-                                    "type": "box",
-                                    "layout": "vertical",
-                                    "contents": [
-                                        {
-                                            "type": "image",
-                                            "url": personalFile[idx]['node']['display_url'],
-                                            "size": "full",
-                                            "aspectMode": "cover",
-                                            "aspectRatio": "2:3",
-                                            "gravity": "top",
-                                            "action": {
-                                                "type": "message",
-                                                "label": "action",
-                                                "text": "下載單圖:"+account + '-' + str(idx)
-                                            }
-                                        },
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "contents": [
-                                                {
-                                                    "type": "text",
-                                                    "text": '查看文章',
-                                                    "color": "#ffffff",
-                                                    "align": "center",
-                                                    "size": "xs",
-                                                    "offsetTop": "3px"
-                                                }
-                                            ],
-                                            "position": "absolute",
-                                            "cornerRadius": "20px",
-                                            "offsetTop": "18px",
-                                            "backgroundColor": "#ff334b",
-                                            "offsetStart": "18px",
-                                            "height": "25px",
-                                            "width": "75px",
-                                            "action": {
-                                                "type": "uri",
-                                                "label": "action",
-                                                "uri": "https://www.instagram.com/p/"+personalFile[idx]['node']['shortcode']+"/"
-                                                }
-                                        }
-                                    ],
-                                "paddingAll": "0px"
-                            }
-                        })
+                    array.append(handleListview(personalFile,account,idx))
+
                 if(mores == 1):
                     flex_message = FlexSendMessage(
                         alt_text='潘多拉之盒已開啟',
@@ -271,6 +114,9 @@ def handle_message(event):
                         }
                     )
                 line_bot_api.reply_message(event.reply_token, flex_message)
+        elif(response.status_code == 429):
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='資料過期啦！！！工程師趕緊修啊~~~~~'))
         else:
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
