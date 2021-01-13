@@ -52,6 +52,7 @@ def handle_message(event):
                 account = msg.split(':')[1]
             url = "https://www.instagram.com/"+account+"/"
         elif(event.message.text == '天選之人'):
+            url='https://www.instagram.com/graphql/query/?query_hash='+os.environ['query_hash']
             response = requests.request("GET", url ,headers=headers)
             if(response.status_code == 200): 
                 lotteryList = response.json()['data']['user']['edge_follow']['edges']
