@@ -54,7 +54,8 @@ def handle_message(event):
     msg = event.message.text
     # print(type(msg))
     msg = msg.encode('utf-8')
-    headers = {'cookie': 'ig_did=AE5CF047-1E27-4940-B4A0-7197554C736F; mid=XzeFfAALAAHpt1UUmdWWrpl7kVe2; ig_nrcb=1; datr=pxu1XwkyUYUpoR3AARXvFIb-; shbid=7352; rur=ATN; csrftoken=wtkxupPbNc0Y8s2IGiwaeyQapeVxrBds; ds_user_id=44465382319; sessionid=44465382319%3AkBAsiqAU8R8SKn%3A19; shbts=1610462481.3135202; urlgen="{\"150.116.132.139\": 131627}:1kzKsW:wR5yiz-U0sdMoRaB0_mnwuCXFvc'}
+    
+    headers = {'cookie': os.environ['myself_cookies']}
     if (('神秘帳號' in event.message.text) or (event.message.text == '天選之人')):
         msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
         mores = 0
@@ -68,7 +69,7 @@ def handle_message(event):
                 account = msg.split(':')[1]
             url = "https://www.instagram.com/"+account+"/"
         elif(event.message.text == '天選之人'):
-            url='https://www.instagram.com/graphql/query/?query_hash=3dec7e2c57367ef3da3d987d89f9dbc8&variables=%7B%22id%22%3A%2244465382319%22%2C%22include_reel%22%3Atrue%2C%22fetch_mutual%22%3Afalse%2C%22first%22%3A24%7D'
+            url='https://www.instagram.com/graphql/query/?query_hash='+os.environ['query_hash']
             response = requests.request("GET", url ,headers=headers)
             if(response.status_code == 200): 
                 lotteryList = response.json()['data']['user']['edge_follow']['edges']
