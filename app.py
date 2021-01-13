@@ -14,25 +14,9 @@ app = Flask(__name__)
 
 # LINE 聊天機器人的基本資料
 
-#local testing
-# config = configparser.ConfigParser()
-# config.read('config.ini')
-# line_bot_api = LineBotApi(config.get('line-bot', 'channel_access_token'))
-# handler = WebhookHandler(config.get('line-bot', 'channel_secret'))
-
 #heroku
 line_bot_api = LineBotApi(os.environ['channel_access_token'])
 handler = WebhookHandler(os.environ['channel_secret'])
-
-# https://www.instagram.com/account/?__a=1 只能取得文章前12筆
-
-# https://www.instagram.com/graphql/query/?query_hash=bfa387b2992c3a52dcbe447467b4b771&variables={%22id%22:%22506333587%22,%22first%22:13,%22after%22:%22QVFBNVZfYVJlRXNrWTdSdGJ4ZERwRDJvT2YxYW5LWlNWUEtGRGdtZHJNQmp1Xzg2NnFDcHQtRzk0dTFId1ktMVM5by1LZ0FVNi1YY3B4SkxhR2tqV2JYSw==%22}
-# query_hash = 從network取出來 個人頁面往下滑 查看api (不確定是什麼)
-# variables = { 
-#           id= 使用者id (可從 https://www.instagram.com/account/?__a=1 中取得ID)
-#           first = 數量 (目前得知一次最多50筆)
-#           after = end_cursor值
-# }
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -54,7 +38,6 @@ def handle_message(event):
     msg = event.message.text
     # print(type(msg))
     msg = msg.encode('utf-8')
-    
     headers = {'cookie': os.environ['myself_cookies']}
     if (('神秘帳號' in event.message.text) or (event.message.text == '天選之人')):
         msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
@@ -69,7 +52,6 @@ def handle_message(event):
                 account = msg.split(':')[1]
             url = "https://www.instagram.com/"+account+"/"
         elif(event.message.text == '天選之人'):
-            url='https://www.instagram.com/graphql/query/?query_hash='+os.environ['query_hash']
             response = requests.request("GET", url ,headers=headers)
             if(response.status_code == 200): 
                 lotteryList = response.json()['data']['user']['edge_follow']['edges']
@@ -84,7 +66,7 @@ def handle_message(event):
             personalFile = response.json()['graphql']['user']['edge_owner_to_timeline_media']['edges']
             if len(personalFile) == 0:
                 line_bot_api.reply_message(
-                    event.reply_token, TextSendMessage(text='您好，由於Instagram安全隱私問題，此人非公開帳號，所以無法取得相關資訊'))
+                    event.reply_token, TextSendMessage(text='非常抱歉～由於Instagram安全隱私問題，此人非公開帳號，所以小幫手也無法取得相關資訊QQ..'))
             else:
                 array = []
                 for idx in range(len(personalFile)):
@@ -117,24 +99,32 @@ def handle_message(event):
                 line_bot_api.reply_message(event.reply_token, flex_message)
         elif(response.status_code == 429):
             line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='資料過期啦！！！工程師趕緊修啊~~~~~'))
+                event.reply_token, TextSendMessage(text='小幫手罷工啦！！工程師趕緊修啊~~~~~'))
         else:
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
     elif ('下載單圖' in event.message.text):
         msg = unicodedata.normalize('NFKC', event.message.text)
         account = msg.split(':')[1].split('-')[0]
-        index = msg.split(':')[1].split('-')[1]
+        item = int(msg.split(':')[1].split('-')[1])
         url = "https://www.instagram.com/"+account+"/"
         querystring = {"__a": "1"}
         payload = ""
-        response = requests.request(
-            "GET", url, data=payload, headers=headers, params=querystring)
+        response = requests.request("GET", url, data=payload, headers=headers, params=querystring)
         if(response.status_code == 200):
-            personalFile = response.json(
-            )['graphql']['user']['edge_owner_to_timeline_media']['edges']
-            line_bot_api.reply_message(event.reply_token, ImageSendMessage(
-                original_content_url=personalFile[int(index)]['node']['display_url'], preview_image_url=personalFile[int(index)]['node']['display_url']))
+            personalFile = response.json()['graphql']['user']['edge_owner_to_timeline_media']['edges']
+            if(personalFile[item]['node']['is_video'] == True):
+                line_bot_api.reply_message(event.reply_token, VideoSendMessage(
+                    original_content_url=personalFile[item]['node']['video_url'], preview_image_url=personalFile[item]['node']['display_url']))
+            elif(personalFile[int(item)]['node']['is_video'] == False):
+                line_bot_api.reply_message(event.reply_token, ImageSendMessage(
+                    original_content_url=personalFile[item]['node']['display_url'], preview_image_url=personalFile[item]['node']['display_url']))
+            else:
+                line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='特殊狀況！小幫手也不知道發生甚麼事了！！！'))
+        elif(response.status_code == 429):
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='小幫手罷工啦！！工程師趕緊修啊~~~~~'))
         else:
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
@@ -194,9 +184,24 @@ def handle_message(event):
         response = requests.request("GET", url, data=payload, headers=headers, params=querystring)
         if(response.status_code == 200):
             personalFile = response.json()['graphql']['user']['edge_owner_to_timeline_media']['edges']
-            line_bot_api.reply_message(event.reply_token, ImageSendMessage(
-                original_content_url= personalFile[main_index]['node']['edge_sidecar_to_children']['edges'][item_index]['node']['display_url'],
-                 preview_image_url= personalFile[main_index]['node']['edge_sidecar_to_children']['edges'][item_index]['node']['display_url']))
+            personalFileChildren = personalFile[main_index]['node']['edge_sidecar_to_children']['edges'][item_index]['node']
+            if(personalFileChildren['is_video'] == True):
+                line_bot_api.reply_message(event.reply_token, VideoSendMessage(
+                    original_content_url = personalFileChildren['video_url'], 
+                    preview_image_url = personalFileChildren['display_url']))
+            elif(personalFileChildren['is_video'] == False):
+                line_bot_api.reply_message(event.reply_token, ImageSendMessage(
+                    original_content_url= personalFileChildren['display_url'],
+                    preview_image_url= personalFileChildren['display_url']))
+            else:
+                line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='特殊狀況！小幫手也不知道發生甚麼事了！！！'))
+        elif(response.status_code == 429):
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='小幫手罷工啦！！工程師趕緊修啊~~~~~'))
+        else:
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
 
     return 'OK2'
 
