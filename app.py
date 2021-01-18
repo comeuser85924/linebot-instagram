@@ -51,26 +51,30 @@ def handle_postback(event):
         account = event.postback.data.split(' ')[1]
         shortcode = event.postback.data.split(' ')[2]
         pageToken = event.postback.data.split(' ')[3] 
-        sort = 0
+        sort = ''
         if(len(event.postback.data.split(' ')) > 4):
             sort = int(event.postback.data.split(' ')[4])
         url = graphqlUrl+'?query_hash='+user_multiple_photos_query_hash+'&variables={%22shortcode%22:%22'+shortcode+'%22}'                      
         userBody = requests.request("GET", url, headers=headers)
         if(userBody.status_code == 200):
             personalFile = userBody.json()['data']['shortcode_media']
-            if(personalFile['is_video'] == True):
-                line_bot_api.reply_message(event.reply_token, VideoSendMessage(
-                    original_content_url=personalFile['video_url'], preview_image_url=personalFile['display_url']))
-            elif(personalFile['is_video'] == False):
-                if(sort == 0):
+            if(sort == ''):
+                if(personalFile['__typename'] == 'GraphImage'):
                     line_bot_api.reply_message(event.reply_token, ImageSendMessage(
                         original_content_url=personalFile['display_url'], preview_image_url=personalFile['display_url']))
                 else:
+                    line_bot_api.reply_message(
+                    event.reply_token, TextSendMessage(text='特殊狀況！小幫手也不知道發生甚麼事了！！！'))
+            else:
+                if(personalFile['edge_sidecar_to_children']['edges'][sort]['node']['__typename'] == 'GraphImage'):
                     line_bot_api.reply_message(event.reply_token, ImageSendMessage(
                         original_content_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['display_url'], preview_image_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['display_url']))
-            else:
-                line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='特殊狀況！小幫手也不知道發生甚麼事了！！！'))
+                elif(personalFile['edge_sidecar_to_children']['edges'][sort]['node']['__typename'] == 'GraphVideo'):
+                    line_bot_api.reply_message(event.reply_token, VideoSendMessage(
+                    original_content_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['video_url'], preview_image_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['video_url']))
+                else:
+                    line_bot_api.reply_message(
+                    event.reply_token, TextSendMessage(text='特殊狀況！小幫手也不知道發生甚麼事了！！！'))
         elif(userBody.status_code == 429):
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='小幫手罷工啦！！工程師趕緊修啊~~~~~'))
