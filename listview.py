@@ -22,7 +22,7 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                 "type": "postback",
                                 "label": "action",
                                 "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                "displayText":"正妹IG:"+account
+                                "displayText":"IG:"+account
                             }
                         },
                         {
@@ -73,7 +73,7 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                 "type": "postback",
                                 "label": "action",
                                 "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                "displayText":"正妹IG:"+account
+                                "displayText":"IG:"+account
                             }
                         },
                         {
@@ -182,7 +182,7 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                 "type": "postback",
                                 "label": "action",
                                 "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                "displayText":"正妹IG:"+account
+                                "displayText":"IG:"+account
                             }
                         },
                         {
@@ -214,7 +214,7 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                             "type": "postback",
                                             "label": "action",
                                             "data": "多圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                            "displayText":"正妹IG:"+account
+                                            "displayText":"IG:"+account
                                         }
                                     },
                                     {
@@ -337,7 +337,7 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                 "type": "postback",
                                 "label": "action",
                                 "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                "displayText":"正妹IG:"+account
+                                "displayText":"IG:"+account
                             }
                         },
                         {
@@ -369,7 +369,7 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                             "type": "postback",
                                             "label": "action",
                                             "data": "多圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                            "displayText":"正妹IG:"+account
+                                            "displayText":"IG:"+account
                                         }
                                     },
                                     {

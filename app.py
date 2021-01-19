@@ -62,9 +62,15 @@ def handle_postback(event):
                 if(personalFile['__typename'] == 'GraphImage'):
                     line_bot_api.reply_message(event.reply_token, ImageSendMessage(
                         original_content_url=personalFile['display_url'], preview_image_url=personalFile['display_url']))
+                elif(personalFile['__typename'] == 'GraphSidecar'):
+                    line_bot_api.reply_message(event.reply_token, ImageSendMessage(
+                        original_content_url=personalFile['display_url'], preview_image_url=personalFile['display_url']))
+                elif(personalFile['__typename'] == 'GraphVideo'):
+                    line_bot_api.reply_message(event.reply_token, VideoSendMessage(
+                    original_content_url=personalFile['video_url'], preview_image_url=personalFile['video_url']))
                 else:
                     line_bot_api.reply_message(
-                    event.reply_token, TextSendMessage(text='特殊狀況！小幫手也不知道發生甚麼事了！！！'))
+                    event.reply_token, TextSendMessage(text='特殊狀況-1！小幫手也不知道發生甚麼事了！！！'))
             else:
                 if(personalFile['edge_sidecar_to_children']['edges'][sort]['node']['__typename'] == 'GraphImage'):
                     line_bot_api.reply_message(event.reply_token, ImageSendMessage(
@@ -74,7 +80,7 @@ def handle_postback(event):
                     original_content_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['video_url'], preview_image_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['video_url']))
                 else:
                     line_bot_api.reply_message(
-                    event.reply_token, TextSendMessage(text='特殊狀況！小幫手也不知道發生甚麼事了！！！'))
+                    event.reply_token, TextSendMessage(text='特殊狀況-2！小幫手也不知道發生甚麼事了！！！'))
         elif(userBody.status_code == 429):
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='小幫手罷工啦！！工程師趕緊修啊~~~~~'))
@@ -110,7 +116,7 @@ def handle_postback(event):
                                         "type": "postback",
                                         "label": "action",
                                         "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage + ' ' + str(idx),
-                                        "displayText":"正妹IG:"+account
+                                        "displayText":"IG:"+account
                                     }
                                 }
                             ],
@@ -180,7 +186,7 @@ def handle_message(event):
         if('###' in msg):
             account = msg.split(':')[1]
         elif(event.message.text == '天選之人'):
-            trackUrl='https://www.instagram.com/graphql/query/?query_hash='+os.environ['track_query_hash'] + '&variables=%7B%22id%22%3A%22' + os.environ['track_id'] + '%22%2C%22first%22%3A' + '24' +'%7D'
+            trackUrl='https://www.instagram.com/graphql/query/?query_hash='+os.environ['track_query_hash'] + '&variables=%7B%22id%22%3A%22' + os.environ['track_id'] + '%22%2C%22first%22%3A' + '50' +'%7D'
             print(trackUrl)
             trackBody = requests.request("GET", trackUrl ,headers=headers)
             print(trackBody.status_code)
