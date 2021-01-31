@@ -10,6 +10,7 @@ import random
 import unicodedata  # 幫助我們全形轉半行
 from countSum import handleCount # 引入countSum.py 中的 handleCount fnction
 from listview import handleListview # listview.py 中的 handleListview fnction
+import random
 app = Flask(__name__)
 
 
@@ -67,7 +68,7 @@ def handle_postback(event):
                         original_content_url=personalFile['display_url'], preview_image_url=personalFile['display_url']))
                 elif(personalFile['__typename'] == 'GraphVideo'):
                     line_bot_api.reply_message(event.reply_token, VideoSendMessage(
-                    original_content_url=personalFile['video_url'], preview_image_url=personalFile['video_url']))
+                    original_content_url=personalFile['video_url'], preview_image_url=personalFile['display_url']))
                 else:
                     line_bot_api.reply_message(
                     event.reply_token, TextSendMessage(text='特殊狀況-1！小幫手也不知道發生甚麼事了！！！'))
@@ -77,7 +78,7 @@ def handle_postback(event):
                         original_content_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['display_url'], preview_image_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['display_url']))
                 elif(personalFile['edge_sidecar_to_children']['edges'][sort]['node']['__typename'] == 'GraphVideo'):
                     line_bot_api.reply_message(event.reply_token, VideoSendMessage(
-                    original_content_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['video_url'], preview_image_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['video_url']))
+                    original_content_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['video_url'], preview_image_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['display_url']))
                 else:
                     line_bot_api.reply_message(
                     event.reply_token, TextSendMessage(text='特殊狀況-2！小幫手也不知道發生甚麼事了！！！'))
