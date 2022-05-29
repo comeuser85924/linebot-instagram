@@ -8,6 +8,7 @@ from listview import handleListview # listview.py 中的 handleListview fnction
 import configparser
 import gspread
 import json
+import time
 import os
 import random
 import requests
