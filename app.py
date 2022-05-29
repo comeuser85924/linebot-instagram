@@ -180,26 +180,21 @@ def handle_postback(event):
 def handle_message(event):
     msg = event.message.text
     msg = msg.encode('utf-8')
-    if(event.message.text == '!@#dev_testing_message!@#'):
-        accountList = sheet.get_all_records()
-        print(accountList)
-    if (('###' in event.message.text) or (event.message.text == '天選之人')):
-        msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
+    if (('###' in msg) or (msg == '天選之人')):
+        msg = unicodedata.normalize('NFKC',msg).replace(" ", "")
         mores = 0
         account = ''
         url=''
         if('###' in msg):
             account = msg.split(':')[1]
-        elif(event.message.text == '天選之人'):
-            trackUrl='https://www.instagram.com/graphql/query/?query_hash='+os.environ['track_query_hash'] + '&variables=%7B%22id%22%3A%22' + os.environ['track_id'] + '%22%2C%22first%22%3A' + '50' +'%7D'
-            print(trackUrl)
-            trackBody = requests.request("GET", trackUrl ,headers=headers)
-            print(trackBody.status_code)
-            if(trackBody.status_code == 200): 
-                print(trackBody.json()['data']['user']['edge_follow'])
-                lotteryList = trackBody.json()['data']['user']['edge_follow']['edges']
-                endSum = random.randint(1,len(lotteryList)-1) 
-                account = lotteryList[endSum]['node']['username']
+        elif(msg == '天選之人'):
+            # 取得 sheet 帳號列表
+            accountList = sheet.get_all_records()
+            # 等待 1 秒，防止用戶觸發 google sheet rate limit
+            time.sleep(1)
+            # 將帳號列表順序打亂，並隨機產一個數值當作 天選之人 代號
+            randomIndex = random.randint(1, len(accountList) - 1) 
+            account = accountList[randomIndex]['account']
 
         response = requests.request("GET", instagramUrl + account + '/', headers=headers, params=queryString)
         if(response.status_code == 200):
