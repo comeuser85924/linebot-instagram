@@ -4,6 +4,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
 from countSum import handleCount # 引入countSum.py 中的 handleCount fnction
 from listview import handleListview # listview.py 中的 handleListview fnction
+from module import mails
 
 import configparser
 import gspread
@@ -28,10 +29,13 @@ instagramUrl = 'https://www.instagram.com/'
 queryString = {'__a': '1'}
 graphqlUrl = instagramUrl + 'graphql/query/'
 
-creds = gspread.service_account(filename = 'google-credentials.json')
-client = creds.open_by_url(
-'https://docs.google.com/spreadsheets/d/' + os.environ['GOOGLE_SHEET_ID'] + '/edit#gid=0')
-sheet = client.get_worksheet(0) 
+try:
+    creds = gspread.service_account(filename = 'google-credentials.json')
+    client = creds.open_by_url(
+    'https://docs.google.com/spreadsheets/d/' + os.environ['GOOGLE_SHEET_ID'] + '/edit#gid=0')
+    sheet = client.get_worksheet(0) 
+except gspread.exceptions.APIError as e:
+    mails('【google sheet 異常】：' + str(e))
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -40,7 +44,8 @@ def callback():
     app.logger.info("Request body: " + body)
     try:
         handler.handle(body, signature)
-    except InvalidSignatureError:
+    except InvalidSignatureError as errorMsg:
+        mails('【Line callback 異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看')
         abort(400)
     return 'OK'
 
@@ -86,8 +91,9 @@ def handle_postback(event):
                     line_bot_api.reply_message(
                     event.reply_token, TextSendMessage(text='特殊狀況-2！小幫手也不知道發生甚麼事了！！！'))
         elif(userBody.status_code == 429):
+            mails('【單圖異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(userBody))
             line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='小幫手罷工啦！！工程師趕緊修啊~~~~~'))
+                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
         else:
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
@@ -136,6 +142,10 @@ def handle_postback(event):
                 }
             )
             line_bot_api.reply_message(event.reply_token, flex_message)
+        elif(userBody.status_code == 429):
+            mails('【單圖異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(userBody))
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
 
     elif(event.postback.data.split(' ')[0] == '下一輪'):
         userID = event.postback.data.split(' ')[1]
@@ -174,8 +184,9 @@ def handle_postback(event):
                 )
                 line_bot_api.reply_message(event.reply_token, flex_message)
     else:
+        mails('【LineBot postback 異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' )
         line_bot_api.reply_message(
-            event.reply_token, TextSendMessage(text='小幫手不知道該如何反應了...'))
+            event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -234,11 +245,15 @@ def handle_message(event):
                     )
                     line_bot_api.reply_message(event.reply_token, flex_message)
         elif(response.status_code == 429):
+            mails('【天選之人/指定帳號 異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(response) )
             line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='小幫手罷工啦！！工程師趕緊修啊~~~~~'))
+                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
         else:
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
+    else:
+        line_bot_api.reply_message(
+            event.reply_token, TextSendMessage(text='您好，請輸入正確的格式，詳細看【使用說明】'))
 
     return 'OK2'
 
