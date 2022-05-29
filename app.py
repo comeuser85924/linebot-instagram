@@ -180,14 +180,14 @@ def handle_postback(event):
 def handle_message(event):
     msg = event.message.text
     msg = msg.encode('utf-8')
-    if (('###' in msg) or (msg == '天選之人')):
-        msg = unicodedata.normalize('NFKC',msg).replace(" ", "")
+    if (('###' in event.message.text) or (event.message.text == '天選之人')):
+        msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
         mores = 0
         account = ''
         url=''
         if('###' in msg):
             account = msg.split(':')[1]
-        elif(msg == '天選之人'):
+        elif(event.message.text == '天選之人'):
             # 取得 sheet 帳號列表
             accountList = sheet.get_all_records()
             # 等待 1 秒，防止用戶觸發 google sheet rate limit
