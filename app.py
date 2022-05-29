@@ -251,9 +251,9 @@ def handle_message(event):
         else:
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
-    else:
-        line_bot_api.reply_message(
-            event.reply_token, TextSendMessage(text='您好，請輸入正確的格式，詳細看【使用說明】'))
+    # else:
+    #     line_bot_api.reply_message(
+    #         event.reply_token, TextSendMessage(text='您好，請輸入正確的格式，詳細看【使用說明】'))
 
     return 'OK2'
 
