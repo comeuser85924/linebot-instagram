@@ -6,6 +6,7 @@ from countSum import handleCount # 引入countSum.py 中的 handleCount fnction
 from listview import handleListview # listview.py 中的 handleListview fnction
 
 import configparser
+import gspread
 import json
 import os
 import random
@@ -23,8 +24,13 @@ user_multiple_photos_query_hash = os.environ['user_multiple_photos_query_hash']
 headers = {'cookie': os.environ['myself_cookies']}
 
 instagramUrl = 'https://www.instagram.com/'
-queryString = {"__a": "1"}
-graphqlUrl = instagramUrl + "graphql/query/"
+queryString = {'__a': '1'}
+graphqlUrl = instagramUrl + 'graphql/query/'
+
+creds = gspread.service_account(filename = 'google-credentials.json')
+client = creds.open_by_url(
+'https://docs.google.com/spreadsheets/d/' + os.environ['GOOGLE_SHEET_ID'] + '/edit#gid=0')
+sheet = client.get_worksheet(0) 
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -174,7 +180,9 @@ def handle_postback(event):
 def handle_message(event):
     msg = event.message.text
     msg = msg.encode('utf-8')
-
+    if(event.message.text == '!@#dev_testing_message!@#'):
+        accountList = sheet.get_all_records()
+        print(accountList)
     if (('###' in event.message.text) or (event.message.text == '天選之人')):
         msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
         mores = 0
