@@ -2,18 +2,17 @@ from flask import Flask, request, abort, render_template
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
-import configparser
-import os
-import requests
-import json
-import random
-import unicodedata  # 幫助我們全形轉半行
 from countSum import handleCount # 引入countSum.py 中的 handleCount fnction
 from listview import handleListview # listview.py 中的 handleListview fnction
+
+import configparser
+import json
+import os
 import random
+import requests
+import unicodedata  # 幫助我們全形轉半行
+
 app = Flask(__name__)
-
-
 
 #heroku
 line_bot_api = LineBotApi(os.environ['channel_access_token'])
@@ -30,15 +29,12 @@ graphqlUrl = instagramUrl + "graphql/query/"
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
-
     body = request.get_data(as_text=True)
     app.logger.info("Request body: " + body)
-
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
-
     return 'OK'
 
 @handler.add(PostbackEvent)
