@@ -2,8 +2,8 @@ from flask import Flask, request, abort, render_template
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
-from countSum import handleCount # 引入countSum.py 中的 handleCount fnction
 from listview import handleListview # listview.py 中的 handleListview fnction
+from listview import media_multiple_images_carousel_list # listview.py 中的 media_multiple_images_carousel_list fnction
 from module import mails
 
 import configparser
@@ -20,10 +20,8 @@ app = Flask(__name__)
 #heroku Config Vars
 line_bot_api = LineBotApi(os.environ['channel_access_token'])
 handler = WebhookHandler(os.environ['channel_secret'])
-# query_id = os.environ['query_id']
-# track_query_hash = os.environ['track_query_hash']
 query_hash = os.environ['user_multiple_photos_query_hash']
-headers =  os.environ['headers']
+headers = headers = eval(os.environ['headers']) 
 
 host = 'https://www.instagram.com'
 graphql_url = host + "/graphql/query/"
@@ -66,7 +64,7 @@ def handle_message(event):
             accountList = sheet.get_all_records() # 取得 sheet 帳號列表  
             time.sleep(0.5) # 等待 0.5 秒，防止用戶觸發太過頻繁執行導致觸發 google sheet rate limit
             randomIndex = random.randint(1, len(accountList) - 1)  # 將帳號列表順序打亂，並隨機產一個數值當作 天選之人 代號
-            account = accountList[randomIndex]['account']   
+            account = accountList[randomIndex]['account']
         queryString = { 'username' : account }
         profile_info_resp = requests.request("GET", profile_info_url, headers = headers, params = queryString)
         user_id = profile_info_resp.json()['data']['user']['id'] # user_id = 取得 user 的 id
@@ -81,7 +79,7 @@ def handle_message(event):
             user_profile_info = graphql_resp.json()['data']['user']
             to_line_carousel_media_list(1, user_profile_info, event, user_id, account, next_page_token)
         else:
-             print(str(graphql_resp))
+            print(str(graphql_resp))
             mails('【取得用戶前10筆異常(graphql_resp)】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(graphql_resp))
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
