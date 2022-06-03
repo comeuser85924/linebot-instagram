@@ -1,9 +1,12 @@
 from countSum import handleCount
 import requests
 import json
-def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_multiple_photos_query_hash,userID,nextpage):
+def handleListview(userBody, account, idx, shortcode, user_id, media_id, next_page_token):
     flex_message = {}
     # 單張
+    # media_type = 0 單圖
+    # media_type = 1 多圖
+    # media_type = 2 下一輪
     if((userBody[idx]['node']['__typename'] == 'GraphImage' or userBody[idx]['node']['__typename'] == 'GraphVideo') and idx != 9):
         flex_message = {
             "type": "bubble",
@@ -21,8 +24,9 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                             "action": {
                                 "type": "postback",
                                 "label": "action",
-                                "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                "displayText":"IG:"+account
+                                # "data": "單圖 "+ account + ' ' + shortcode + ' ' + nextpage,
+                                "data": "media_type=0&account=" + account + '&media_id=' + media_id,
+                                "displayText": account
                             }
                         },
                         {
@@ -72,8 +76,8 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                             "action": {
                                 "type": "postback",
                                 "label": "action",
-                                "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                "displayText":"IG:"+account
+                                "data":  "media_type=0&account=" + account + '&media_id=' + media_id,
+                                "displayText": account
                             }
                         },
                         {
@@ -105,7 +109,7 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                         "action": {
                                             "type": "postback",
                                             "label": "action",
-                                            "data":"下一輪 "+ userID + " " + account + " " + nextpage,
+                                            "data":"media_type=2&account=" + account + "&user_id="+ user_id +"&next_page_token:" + next_page_token,
                                             "displayText":"看下一輪囉！"
                                             }
                                         },
@@ -181,8 +185,8 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                             "action": {
                                 "type": "postback",
                                 "label": "action",
-                                "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                "displayText":"IG:"+account
+                                "data": "media_type=0&account=" + account + '&media_id=' + media_id,
+                                "displayText": account
                             }
                         },
                         {
@@ -213,8 +217,8 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                         "action": {
                                             "type": "postback",
                                             "label": "action",
-                                            "data": "多圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                            "displayText":"IG:"+account
+                                            "data": "media_type=1&account=" + account + '&media_id=' + media_id + '&index=' + str(idx),
+                                            "displayText":account
                                         }
                                     },
                                     {
@@ -259,7 +263,7 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                         "action": {
                                             "type": "postback",
                                             "label": "action",
-                                            "data":"下一輪 " + userID + " " + account + " " + nextpage,
+                                            "data":"media_type=2&account=" + account + "&user_id="+ user_id +"&next_page_token:" + next_page_token,
                                             "displayText":"看下一輪囉！"
                                             }
                                         },
@@ -336,8 +340,8 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                             "action": {
                                 "type": "postback",
                                 "label": "action",
-                                "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                "displayText":"IG:"+account
+                                "data": "media_type=0&account=" + account + '&media_id=' + media_id,
+                                "displayText":account
                             }
                         },
                         {
@@ -368,8 +372,8 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                         "action": {
                                             "type": "postback",
                                             "label": "action",
-                                            "data": "多圖 "+account + ' ' + shortcode + ' ' +nextpage,
-                                            "displayText":"IG:"+account
+                                            "data": "media_type=1&account=" + account + '&media_id=' + media_id + '&index=' + str(idx),
+                                            "displayText":account
                                         }
                                     },
                                     {
@@ -404,6 +408,60 @@ def handleListview(userBody, account, idx, graphqlUrl, headers, shortcode, user_
                                 {
                                     "type": "text",
                                     "text": '查看文章',
+                                    "color": "#ffffff",
+                                    "align": "center",
+                                    "size": "xs",
+                                    "offsetTop": "3px"
+                                }
+                            ],
+                            "position": "absolute",
+                            "cornerRadius": "20px",
+                            "offsetTop": "18px",
+                            "backgroundColor": "#ff334b",
+                            "offsetStart": "18px",
+                            "height": "25px",
+                            "width": "75px",
+                            "action": {
+                                "type": "uri",
+                                "label": "action",
+                                "uri": "https://www.instagram.com/p/"+shortcode+"/"
+                                }
+                        }
+                    ],
+                "paddingAll": "0px"
+            }
+        }
+    return flex_message
+    
+# 當點 我想一次看多張點
+def media_multiple_images_carousel_list(userBody, account, idx, shortcode, user_id, media_id, nextpage):
+    flex_message = {
+            "type": "bubble",
+            "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "image",
+                            "url": userBody[idx]['image_versions2']['candidates'][0]['url'],
+                            "size": "full",
+                            "aspectMode": "cover",
+                            "aspectRatio": "2:3",
+                            "gravity": "top",
+                            "action": {
+                                "type": "postback",
+                                "label": "action",
+                                "data": "media_type=0&account=" + account + '&media_id=' + media_id + '&index=' + str(idx),
+                                "displayText": account
+                            }
+                        },
+                        {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "text",
+                                    "text": "查看文章",
                                     "color": "#ffffff",
                                     "align": "center",
                                     "size": "xs",

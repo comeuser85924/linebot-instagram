@@ -17,17 +17,18 @@ import unicodedata  # 幫助我們全形轉半行
 
 app = Flask(__name__)
 
-#heroku
+#heroku Config Vars
 line_bot_api = LineBotApi(os.environ['channel_access_token'])
 handler = WebhookHandler(os.environ['channel_secret'])
-query_id = os.environ['query_id']
-track_query_hash = os.environ['track_query_hash']
-user_multiple_photos_query_hash = os.environ['user_multiple_photos_query_hash']
-headers = {'cookie': os.environ['myself_cookies']}
+# query_id = os.environ['query_id']
+# track_query_hash = os.environ['track_query_hash']
+query_hash = os.environ['user_multiple_photos_query_hash']
+headers =  os.environ['headers']
 
-instagramUrl = 'https://www.instagram.com/'
-queryString = {'__a': '1'}
-graphqlUrl = instagramUrl + 'graphql/query/'
+host = 'https://www.instagram.com'
+graphql_url = host + "/graphql/query/"
+api_v1_host = 'https://i.instagram.com/api/v1'
+profile_info_url = api_v1_host + "/users/web_profile_info/"
 
 try:
     creds = gspread.service_account(filename = 'google-credentials.json')
@@ -35,7 +36,10 @@ try:
     'https://docs.google.com/spreadsheets/d/' + os.environ['GOOGLE_SHEET_ID'] + '/edit#gid=0')
     sheet = client.get_worksheet(0) 
 except gspread.exceptions.APIError as e:
-    mails('【google sheet 異常】：' + str(e))
+    print(e)
+    mails('【Google sheet 異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(e))
+    line_bot_api.reply_message(
+        event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -49,213 +53,169 @@ def callback():
         abort(400)
     return 'OK'
 
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    msg = event.message.text
+    if (('###' in event.message.text) or (event.message.text == '天選之人')):
+        msg = msg.encode('utf-8')
+        msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
+        next_page_token = ''
+        if('###' in msg):
+            account = msg.split(':')[1]
+        elif(event.message.text == '天選之人'): 
+            accountList = sheet.get_all_records() # 取得 sheet 帳號列表  
+            time.sleep(0.5) # 等待 0.5 秒，防止用戶觸發太過頻繁執行導致觸發 google sheet rate limit
+            randomIndex = random.randint(1, len(accountList) - 1)  # 將帳號列表順序打亂，並隨機產一個數值當作 天選之人 代號
+            account = accountList[randomIndex]['account']   
+        queryString = { 'username' : account }
+        profile_info_resp = requests.request("GET", profile_info_url, headers = headers, params = queryString)
+        user_id = profile_info_resp.json()['data']['user']['id'] # user_id = 取得 user 的 id
+        if profile_info_resp.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['has_next_page'] == True:
+            next_page_token = profile_info_resp.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['end_cursor'] # next_page_token = 下個輪播的 token
+        first = '10' # first = 顯示數量
+        ## https://www.instagram.com/graphql/query/?query_hash={{query_hash}}&variables={"id":{{user_id}},"first":{{first}},"after":{{after}}}
+        query_path = '?query_hash=' + query_hash + '&variables={"id":"'+ user_id +'","first":' + first + '}'
+        graphql_resp = requests.request("GET", graphql_url+query_path, headers = headers)
+        if(graphql_resp.status_code == 200):
+            # 取的 user 前 10 筆的文章資訊
+            user_profile_info = graphql_resp.json()['data']['user']
+            to_line_carousel_media_list(1, user_profile_info, event, user_id, account, next_page_token)
+        else:
+             print(str(graphql_resp))
+            mails('【取得用戶前10筆異常(graphql_resp)】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(graphql_resp))
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
+    return 'OK2'
+
 @handler.add(PostbackEvent)
 def handle_postback(event):
-    userID = ''
-    account = ''
-    nextpage = ''
-    index = ''
-    userQueryString = {}
-    if(event.postback.data.split(' ')[0] == '單圖'):
-        account = event.postback.data.split(' ')[1]
-        shortcode = event.postback.data.split(' ')[2]
-        pageToken = event.postback.data.split(' ')[3] 
-        sort = ''
-        if(len(event.postback.data.split(' ')) > 4):
-            sort = int(event.postback.data.split(' ')[4])
-        url = graphqlUrl+'?query_hash='+user_multiple_photos_query_hash+'&variables={%22shortcode%22:%22'+shortcode+'%22}'                      
-        userBody = requests.request("GET", url, headers=headers)
-        if(userBody.status_code == 200):
-            personalFile = userBody.json()['data']['shortcode_media']
-            if(sort == ''):
-                if(personalFile['__typename'] == 'GraphImage'):
-                    line_bot_api.reply_message(event.reply_token, ImageSendMessage(
-                        original_content_url=personalFile['display_url'], preview_image_url=personalFile['display_url']))
-                elif(personalFile['__typename'] == 'GraphSidecar'):
-                    line_bot_api.reply_message(event.reply_token, ImageSendMessage(
-                        original_content_url=personalFile['display_url'], preview_image_url=personalFile['display_url']))
-                elif(personalFile['__typename'] == 'GraphVideo'):
-                    line_bot_api.reply_message(event.reply_token, VideoSendMessage(
-                    original_content_url=personalFile['video_url'], preview_image_url=personalFile['display_url']))
-                else:
-                    line_bot_api.reply_message(
-                    event.reply_token, TextSendMessage(text='特殊狀況-1！小幫手也不知道發生甚麼事了！！！'))
-            else:
-                if(personalFile['edge_sidecar_to_children']['edges'][sort]['node']['__typename'] == 'GraphImage'):
-                    line_bot_api.reply_message(event.reply_token, ImageSendMessage(
-                        original_content_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['display_url'], preview_image_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['display_url']))
-                elif(personalFile['edge_sidecar_to_children']['edges'][sort]['node']['__typename'] == 'GraphVideo'):
-                    line_bot_api.reply_message(event.reply_token, VideoSendMessage(
-                    original_content_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['video_url'], preview_image_url=personalFile['edge_sidecar_to_children']['edges'][sort]['node']['display_url']))
-                else:
-                    line_bot_api.reply_message(
-                    event.reply_token, TextSendMessage(text='特殊狀況-2！小幫手也不知道發生甚麼事了！！！'))
-        elif(userBody.status_code == 429):
-            mails('【單圖異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(userBody))
-            line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
-        else:
-            line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
-
-    elif(event.postback.data.split(' ')[0] == '多圖'):
-        account = event.postback.data.split(' ')[1]
-        shortcode = event.postback.data.split(' ')[2]
-        nextpage = event.postback.data.split(' ')[3]
-        url = graphqlUrl+'?query_hash='+user_multiple_photos_query_hash+'&variables={%22shortcode%22:%22'+shortcode+'%22}'                      
-        userBody = requests.request("GET", url, headers=headers) 
-        if(userBody.status_code == 200):
-            personalFile = userBody.json()['data']['shortcode_media']
-            edge_sidecar_to_children = personalFile['edge_sidecar_to_children']['edges']
-            array = []
-            for idx in range(len(edge_sidecar_to_children)):
-                array.append({
-                    "type": "bubble",
-                    "body": {
-                            "type": "box",
-                            "layout": "vertical",
-                            "contents": [
-                                {
-                                    "type": "image",
-                                    "url": edge_sidecar_to_children[idx]['node']['display_url'],
-                                    "size": "full",
-                                    "aspectMode": "cover",
-                                    "aspectRatio": "2:3",
-                                    "gravity": "top",
-                                    "action": {
-                                        "type": "postback",
-                                        "label": "action",
-                                        "data": "單圖 "+account + ' ' + shortcode + ' ' +nextpage + ' ' + str(idx),
-                                        "displayText":"IG:"+account
-                                    }
-                                }
-                            ],
-                        "paddingAll": "0px"
-                    }
-                })
-
-            flex_message = FlexSendMessage(
-                alt_text='潘多拉之盒已開啟',
-                contents={
-                    "type": "carousel",
-                    "contents": array[0:10]
-                }
-            )
-            line_bot_api.reply_message(event.reply_token, flex_message)
-        elif(userBody.status_code == 429):
-            mails('【單圖異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(userBody))
-            line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
-
-    elif(event.postback.data.split(' ')[0] == '下一輪'):
-        userID = event.postback.data.split(' ')[1]
-        account = event.postback.data.split(' ')[2]
-        pageToken = event.postback.data.split(' ')[3]
-        userQueryString = {"query_id":query_id, 'id':userID ,'first':10,'after':pageToken}
-        userBody = requests.request("GET", graphqlUrl, headers=headers, params=userQueryString)
-        if(userBody.status_code == 200):
-            userData = userBody.json()['data']['user']['edge_owner_to_timeline_media']['edges']
-            if(userBody.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['has_next_page'] == True):
-                nextpage_next = userBody.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['end_cursor']
-            if len(userData) == 0:
-                line_bot_api.reply_message(
-                    event.reply_token, TextSendMessage(text='非常抱歉～由於Instagram安全隱私問題，此人非公開帳號，所以小幫手也無法取得相關資訊QQ..'))
-            else:
-                flexMsg = []
-                for idx in range(len(userData)):
-                    flexMsg.append(
-                        handleListview(
-                            userData, 
-                            account, 
-                            idx, 
-                            graphqlUrl,
-                            headers,
-                            userData[idx]['node']['shortcode'],
-                            user_multiple_photos_query_hash,
-                            userID,
-                            nextpage_next
+    postback_msg = event.postback.data
+    account = postback_msg.split('&')[1].split('=')[1]
+    # 點擊輪播中大張圖片時
+    if(postback_msg.split('&')[0].split('=')[1] == '0'):
+        media_id = postback_msg.split('&')[2].split('=')[1]
+        media_info_url = api_v1_host + '/media/' + media_id + '/info/'
+        # 先取的單篇文章資訊
+        media_info_resp = requests.request("GET", media_info_url, headers = headers)
+        if(media_info_resp.status_code == 200):
+            media_info_resp_item = media_info_resp.json()['items'][0]
+            # 單圖 feed
+            if(media_info_resp_item['product_type'] == 'feed'):
+                img_url = media_info_resp_item['image_versions2']['candidates'][0]['url']
+                line_bot_api.reply_message(event.reply_token, ImageSendMessage(
+                    original_content_url = img_url,
+                    preview_image_url = img_url
+                ))
+            # 多圖 carousel_container
+            elif(media_info_resp_item['product_type'] == 'carousel_container'):
+                # 我想一次看多張點
+                if "index" in postback_msg:
+                    index = int(postback_msg.split('&')[3].split('=')[1])
+                    # 多圖的文章中會有圖片及影片兩種類型
+                    # media_type = 1 圖片
+                    if(media_info_resp_item['carousel_media'][index]['media_type'] == 1):
+                        img_url = media_info_resp_item['carousel_media'][index]['image_versions2']['candidates'][0]['url']
+                        line_bot_api.reply_message(event.reply_token, ImageSendMessage(
+                            original_content_url = img_url,
+                            preview_image_url = img_url
                         ))
-                flex_message = FlexSendMessage(
-                    alt_text='潘多拉之盒已開啟',
-                    contents={
-                        "type": "carousel",
-                        "contents": flexMsg[0:10]
-                    }
-                )
-                line_bot_api.reply_message(event.reply_token, flex_message)
+                    # media_type = 1 影片
+                    elif(media_info_resp_item['carousel_media'][index]['media_type'] == 2):
+                        video_url = media_info_resp_item['carousel_media'][index]['video_versions'][0]['url']
+                        img_url =  media_info_resp_item['carousel_media'][index]['image_versions2']['candidates'][0]['url']
+                        line_bot_api.reply_message(event.reply_token, VideoSendMessage(
+                            original_content_url = video_url,
+                            preview_image_url = img_url
+                        ))
+                # 多圖中預設的大張單圖
+                else:
+                    img_url = media_info_resp_item['carousel_media'][0]['image_versions2']['candidates'][0]['url']
+                    line_bot_api.reply_message(event.reply_token, ImageSendMessage(
+                        original_content_url = img_url,
+                        preview_image_url = img_url
+                    ))
+            # 影片clips、igtv
+            elif(media_info_resp_item['product_type'] == 'clips' or media_info_resp_item['product_type'] == 'igtv'):
+                video_url = media_info_resp_item['video_versions'][0]['url']
+                img_url =  media_info_resp_item['image_versions2']['candidates'][0]['url']
+                line_bot_api.reply_message(event.reply_token, VideoSendMessage(
+                    original_content_url = video_url,
+                    preview_image_url = img_url
+                ))
+            else:
+                print(str(media_info_resp_item))
+                mails('【文章異常(media_info_resp_item)】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(media_info_resp_item))
+                line_bot_api.reply_message(
+                    event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
+        else:
+            print(str(media_info_resp))
+            mails('【文章異常(media_info_resp)】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(media_info_resp))
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
+    # 點擊 我想一次看多張點 時
+    elif(postback_msg.split('&')[0].split('=')[1] == '1'):
+        media_id = postback_msg.split('&')[2].split('=')[1]
+        media_info_url = api_v1_host + '/media/' + media_id + '/info/'
+        # 取的單篇文章資訊(多圖)
+        media_info_resp = requests.request("GET", media_info_url, headers = headers)
+        if(media_info_resp.status_code == 200):
+            media_info_resp_item = media_info_resp.json()['items'][0]
+            to_line_carousel_media_list(2, media_info_resp_item, event,'','','')
+    # 點擊 點我看下一輪 時
+    elif(postback_msg.split('&')[0].split('=')[1] == '2'):
+        user_id = postback_msg.split('&')[2].split('=')[1] # user_id = 取得 user 的 id
+        next_page_token = postback_msg.split('&')[3].split(':')[1] # next_page_token = 下個輪播的 token
+        first = '10' # first = 顯示數量
+        # https://www.instagram.com/graphql/query/?query_hash={{query_hash}}&variables={"id":{{user_id}},"first":{{first}},"after":{{after}}}
+        query_path = '?query_hash=' + query_hash + '&variables={"id":"'+ user_id +'","first":' + first + ',"after":"' + next_page_token +'"}'
+        graphql_resp = requests.request("GET", graphql_url+query_path, headers = headers)
+        if(graphql_resp.status_code == 200):
+            user_profile_info = graphql_resp.json()['data']['user']  # 取的 user 文章資訊
+            if user_profile_info['edge_owner_to_timeline_media']['page_info']['has_next_page'] == True:
+                new_next_page_token = user_profile_info['edge_owner_to_timeline_media']['page_info']['end_cursor']
+            to_line_carousel_media_list(1, user_profile_info, event, user_id, account, new_next_page_token)
     else:
+        print(str(postback_msg))
         mails('【LineBot postback 異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' )
         line_bot_api.reply_message(
             event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
 
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    msg = event.message.text
-    msg = msg.encode('utf-8')
-    if (('###' in event.message.text) or (event.message.text == '天選之人')):
-        msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
-        mores = 0
-        account = ''
-        url=''
-        if('###' in msg):
-            account = msg.split(':')[1]
-        elif(event.message.text == '天選之人'):
-            # 取得 sheet 帳號列表
-            accountList = sheet.get_all_records()
-            # 等待 1 秒，防止用戶觸發 google sheet rate limit
-            time.sleep(1)
-            # 將帳號列表順序打亂，並隨機產一個數值當作 天選之人 代號
-            randomIndex = random.randint(1, len(accountList) - 1) 
-            account = accountList[randomIndex]['account']
-
-        response = requests.request("GET", instagramUrl + account + '/', headers=headers, params=queryString)
-        if(response.status_code == 200):
-            user = response.json()['graphql']['user']
-            userQueryString = {"query_id":query_id, 'id':user['id'] ,'first':'10'}
-            userBody = requests.request("GET", graphqlUrl, headers=headers, params=userQueryString)
-            if(userBody.status_code == 200):
-                userData = userBody.json()['data']['user']['edge_owner_to_timeline_media']['edges']
-                pageToken = ''
-                if(userBody.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['has_next_page'] == True):
-                    pageToken = userBody.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['end_cursor']
-                if len(userData) == 0:
-                    line_bot_api.reply_message(
-                        event.reply_token, TextSendMessage(text='非常抱歉～由於Instagram安全隱私問題，此人非公開帳號，所以小幫手也無法取得相關資訊QQ..'))
-                else:
-                    flexMsg = []
-                    for idx in range(len(userData)):
-                        flexMsg.append(
-                            handleListview(
-                                userData, 
-                                account, 
-                                idx, 
-                                graphqlUrl,
-                                headers,
-                                userData[idx]['node']['shortcode'],
-                                user_multiple_photos_query_hash,
-                                user['id'],
-                                pageToken
-                            ))
-                    flex_message = FlexSendMessage(
-                        alt_text='潘多拉之盒已開啟',
-                        contents={
-                            "type": "carousel",
-                            "contents": flexMsg[0:10]
-                        }
-                    )
-                    line_bot_api.reply_message(event.reply_token, flex_message)
-        elif(response.status_code == 429):
-            mails('【天選之人/指定帳號 異常】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(response) )
-            line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
-        else:
-            line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='您好，您提供的帳號查無資料，請確認帳號是否輸入正確'))
-    # else:
-    #     line_bot_api.reply_message(
-    #         event.reply_token, TextSendMessage(text='您好，請輸入正確的格式，詳細看【使用說明】'))
-
-    return 'OK2'
+def to_line_carousel_media_list(carousel_type, list_data, event, user_id, account, next_page_token):
+    carousel_array = []
+    # 天選之人 or 指定帳號 的預設 10 篇文章的情境
+    if(carousel_type == 1):
+        for index in range(len(list_data['edge_owner_to_timeline_media']['edges'])):
+            carousel_array.append(
+                handleListview(
+                    list_data['edge_owner_to_timeline_media']['edges'], 
+                    account, 
+                    index,       
+                    list_data['edge_owner_to_timeline_media']['edges'][index]['node']['shortcode'],  # 文章網址的 shortcode
+                    user_id, # user 的 id
+                    list_data['edge_owner_to_timeline_media']['edges'][index]['node']['id'], # 文章 media 的 id
+                    next_page_token # 下一輪的 10 筆資料 token
+                ))
+    # 單篇文章(多圖) 我想一次看多張點 的情境
+    elif(carousel_type == 2):
+        for index in range(len(list_data['carousel_media'])):
+            carousel_array.append(
+                media_multiple_images_carousel_list(
+                    list_data['carousel_media'], 
+                    list_data['user']['username'], # user 的 帳號
+                    index, 
+                    list_data['code'],  # 文章網址的 shortcode
+                    list_data['user']['pk'],  # user 的 id
+                    list_data['pk'], # 文章 media 的 id
+                    ''
+                ))
+    flex_message = FlexSendMessage(
+        alt_text='潘多拉之盒已開啟',
+        contents={
+            "type": "carousel",
+            "contents": carousel_array[0:10]
+        }
+    )
+    line_bot_api.reply_message(event.reply_token, flex_message)
 
 if __name__ == "__main__":
     app.run()
