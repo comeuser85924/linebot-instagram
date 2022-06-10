@@ -67,22 +67,33 @@ def handle_message(event):
             account = accountList[randomIndex]['account']
         queryString = { 'username' : account }
         profile_info_resp = requests.request("GET", profile_info_url, headers = headers, params = queryString)
-        user_id = profile_info_resp.json()['data']['user']['id'] # user_id = 取得 user 的 id
-        if profile_info_resp.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['has_next_page'] == True:
-            next_page_token = profile_info_resp.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['end_cursor'] # next_page_token = 下個輪播的 token
-        first = '10' # first = 顯示數量
-        ## https://www.instagram.com/graphql/query/?query_hash={{query_hash}}&variables={"id":{{user_id}},"first":{{first}},"after":{{after}}}
-        query_path = '?query_hash=' + query_hash + '&variables={"id":"'+ user_id +'","first":' + first + '}'
-        graphql_resp = requests.request("GET", graphql_url+query_path, headers = headers)
-        if(graphql_resp.status_code == 200):
-            # 取的 user 前 10 筆的文章資訊
-            user_profile_info = graphql_resp.json()['data']['user']
-            to_line_carousel_media_list(1, user_profile_info, event, user_id, account, next_page_token)
+         # 有搜尋到正確帳號
+        if(profile_info_resp.status_code == 200):
+            user_id = profile_info_resp.json()['data']['user']['id'] # user_id = 取得 user 的 id
+            if profile_info_resp.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['has_next_page'] == True:
+                next_page_token = profile_info_resp.json()['data']['user']['edge_owner_to_timeline_media']['page_info']['end_cursor'] # next_page_token = 下個輪播的 token
+            first = '10' # first = 顯示數量
+            ## https://www.instagram.com/graphql/query/?query_hash={{query_hash}}&variables={"id":{{user_id}},"first":{{first}},"after":{{after}}}
+            query_path = '?query_hash=' + query_hash + '&variables={"id":"'+ user_id +'","first":' + first + '}'
+            graphql_resp = requests.request("GET", graphql_url+query_path, headers = headers)
+            if(graphql_resp.status_code == 200):
+                # 取的 user 前 10 筆的文章資訊
+                user_profile_info = graphql_resp.json()['data']['user']
+                if(user_profile_info['edge_owner_to_timeline_media']['edges'] != []):
+                    to_line_carousel_media_list(1, user_profile_info, event, user_id, account, next_page_token)
+                else:
+                    line_bot_api.reply_message(
+                        event.reply_token, TextSendMessage(text='此帳號為私人帳號或無任何貼文，請輸入正確且公開的 instagram 帳號'))
+            else:
+                print(str(graphql_resp))
+                mails('【取得用戶前10筆異常(graphql_resp)】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(graphql_resp))
+                line_bot_api.reply_message(
+                    event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
         else:
-            print(str(graphql_resp))
-            mails('【取得用戶前10筆異常(graphql_resp)】：請盡速到到 https://dashboard.heroku.com/apps/linebot-instagram 查看' + str(graphql_resp))
             line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='系統異常！已自動通知工程師了，請耐心稍等'))
+                event.reply_token, TextSendMessage(text='查無此帳號，請輸入正確且公開的 instagram 帳號'))
+    elif(event.message.text == 'devtestmail!#999'):
+        mails('【測試Email】：有收到信件')
     return 'OK2'
 
 @handler.add(PostbackEvent)
