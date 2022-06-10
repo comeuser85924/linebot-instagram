@@ -16,7 +16,7 @@ def mails(txt):
         try:
             smtp.ehlo() 
             smtp.starttls()
-            smtp.login(os.environ['from_email'], os.environ['from_mail_pw'])
+            smtp.login(os.environ['from_email'], os.environ['from_email_pw'])
             smtp.send_message(content)
             print("Email Complete!")
         except Exception as e:
