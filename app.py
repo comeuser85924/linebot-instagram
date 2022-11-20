@@ -92,8 +92,13 @@ def handle_message(event):
         else:
             line_bot_api.reply_message(
                 event.reply_token, TextSendMessage(text='查無此帳號，請輸入正確且公開的 instagram 帳號'))
-    elif(event.message.text == 'devtestmail!#999'):
-        mails('【測試Email】：有收到信件')
+    elif('新增@' in msg):
+        account = msg.split('@')[1].split('?')[0].split('/')[3]
+        accountList = len(sheet.get_all_records()) + 1 # 取得 sheet 帳號列表總數(需含 sheet 首欄) 
+        sheet.insert_row([account], accountList + 1) # 輸入帳號至 sheet 中最後一欄
+    else:
+        line_bot_api.reply_message(
+            event.reply_token, TextSendMessage(text='小幫手無法辨識，請重新輸入正確關鍵字'))
     return 'OK2'
 
 @handler.add(PostbackEvent)
