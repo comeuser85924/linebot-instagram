@@ -55,10 +55,6 @@ def callback():
 def handle_message(event):
     msg = event.message.text
     autoRespMsg = ['使用說明','瞭解更多','小幫手的由來','為什麼要使用小幫手','小幫手有哪些功能']
-    autoRespStatus = False
-    for autoMsg in autoRespMsg:
-        if (msg in autoRespMsg):
-            autoRespStatus = True
     if (('###' in event.message.text) or (event.message.text == '天選之人')):
         msg = msg.encode('utf-8')
         msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
@@ -99,16 +95,21 @@ def handle_message(event):
                 event.reply_token, TextSendMessage(text='查無此帳號，請輸入正確且公開的 instagram 帳號'))
     elif('新增@' in msg):
         account = msg.split('@')[1].split('?')[0].split('/')[3]
-        accountList = len(sheet.get_all_records()) + 1 # 取得 sheet 帳號列表總數(需含 sheet 首欄) 
-        resp = sheet.insert_row([account], accountList + 1) # 輸入帳號至 sheet 中最後一欄
+        accountList = sheet.get_all_records()
+        for item in accountList:
+            if(account in item['account']):
+                line_bot_api.reply_message(
+                    event.reply_token, TextSendMessage(text= '新增帳號失敗，天選之人名單中已存在帳號:' + account))
+                return ''
+        resp = sheet.insert_row([account], len(accountList) + 1 + 1) # 取得 sheet 帳號列表總數(需含 sheet 首欄) 並輸入帳號至 sheet 中最後一欄
         print(resp)
         if (resp['updates']['updatedCells'] == 1):
             line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='新增帳號成功，已新增:' + account))
+                    event.reply_token, TextSendMessage(text='新增帳號成功，已新增:' + account))
         else:
             line_bot_api.reply_message(
-                event.reply_token, TextSendMessage(text='新增帳號失敗，請通知工程師進行修正'))
-    elif(autoRespStatus):
+                    event.reply_token, TextSendMessage(text='新增帳號失敗，請通知工程師進行修正'))
+    elif(msg in autoRespMsg):
         return 'OK2'
     else:
         line_bot_api.reply_message(
