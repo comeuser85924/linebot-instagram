@@ -54,6 +54,11 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     msg = event.message.text
+    autoRespMsg = ['使用說明','瞭解更多','小幫手的由來','為什麼要使用小幫手','小幫手有哪些功能']
+    autoRespStatus = False
+    for autoMsg in autoRespMsg:
+        if (msg in autoRespMsg):
+            autoRespStatus = True
     if (('###' in event.message.text) or (event.message.text == '天選之人')):
         msg = msg.encode('utf-8')
         msg = unicodedata.normalize('NFKC', event.message.text).replace(" ", "")
@@ -95,7 +100,16 @@ def handle_message(event):
     elif('新增@' in msg):
         account = msg.split('@')[1].split('?')[0].split('/')[3]
         accountList = len(sheet.get_all_records()) + 1 # 取得 sheet 帳號列表總數(需含 sheet 首欄) 
-        sheet.insert_row([account], accountList + 1) # 輸入帳號至 sheet 中最後一欄
+        resp = sheet.insert_row([account], accountList + 1) # 輸入帳號至 sheet 中最後一欄
+        print(resp)
+        if (resp['updates']['updatedCells'] == 1):
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='新增帳號成功，已新增:' + account))
+        else:
+            line_bot_api.reply_message(
+                event.reply_token, TextSendMessage(text='新增帳號失敗，請通知工程師進行修正'))
+    elif(autoRespStatus):
+        return 'OK2'
     else:
         line_bot_api.reply_message(
             event.reply_token, TextSendMessage(text='小幫手無法辨識，請重新輸入正確關鍵字'))
